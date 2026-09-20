@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+__ICONS__
+<link rel="stylesheet" href="page.css">
+</head>
+<body>
+
+<!-- One stroke weight, one grid, one size. Defined once and referenced, so an icon
+     can never drift between the toolbar and the modal. -->
+<svg hidden aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="9" r="5.5"/><path d="M13 13l3.5 3.5"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 10.5l3.5 3.5 7.5-8"/>
+  </symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 8l4 4 4-4"/>
+  </symbol>
+  <symbol id="i-prev" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4l-6 6 6 6"/>
+  </symbol>
+  <symbol id="i-next" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 4l6 6-6 6"/>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M7 4.5l8 5.5-8 5.5z"/>
+  </symbol>
+  <symbol id="i-pause" viewBox="0 0 20 20" fill="currentColor">
+    <rect x="6" y="4.5" width="3" height="11" rx="1"/>
+    <rect x="11" y="4.5" width="3" height="11" rx="1"/>
+  </symbol>
+  <symbol id="i-reset" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 10a5.5 5.5 0 1 1 1.7 3.97"/><path d="M4 6.5V10h3.5"/>
+  </symbol>
+  <symbol id="i-close" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 3.5v9"/><path d="M6.5 9.5L10 13l3.5-3.5"/><path d="M4 15.5h12"/>
+  </symbol>
+  <symbol id="i-external" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.5 12.5l5-5M8.5 7.5h4v4"/>
+  </symbol>
+  <!-- The store marks are the official single-path logos from simple-icons, on
+       their own 24-unit grid rather than the 20 the drawn icons use, and filled
+       rather than stroked. Both are deliberate: a brand mark is reproduced, not
+       redrawn to match a house stroke weight. They render at currentColor, which
+       is what lets them sit in a monochrome header. -->
+  <symbol id="i-modrinth" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.252.004a11.78 11.768 0 0 0-8.92 3.73 11 10.999 0 0 0-2.17 3.11 11.37 11.359 0 0 0-1.16 5.169c0 1.42.17 2.5.6 3.77.24.759.77 1.899 1.17 2.529a12.3 12.298 0 0 0 8.85 5.639c.44.05 2.54.07 2.76.02.2-.04.22.1-.26-1.7l-.36-1.37-1.01-.06a8.5 8.489 0 0 1-5.18-1.8 5.34 5.34 0 0 1-1.3-1.26c0-.05.34-.28.74-.5a37.572 37.545 0 0 1 2.88-1.629c.03 0 .5.45 1.06.98l1 .97 2.07-.43 2.06-.43 1.47-1.47c.8-.8 1.48-1.5 1.48-1.52 0-.09-.42-1.63-.46-1.7-.04-.06-.2-.03-1.02.18-.53.13-1.2.3-1.45.4l-.48.15-.53.53-.53.53-.93.1-.93.07-.52-.5a2.7 2.7 0 0 1-.96-1.7l-.13-.6.43-.57c.68-.9.68-.9 1.46-1.1.4-.1.65-.2.83-.33.13-.099.65-.579 1.14-1.069l.9-.9-.7-.7-.7-.7-1.95.54c-1.07.3-1.96.53-1.97.53-.03 0-2.23 2.48-2.63 2.97l-.29.35.28 1.03c.16.56.3 1.16.31 1.34l.03.3-.34.23c-.37.23-2.22 1.3-2.84 1.63-.36.2-.37.2-.44.1-.08-.1-.23-.6-.32-1.03-.18-.86-.17-2.75.02-3.73a8.84 8.839 0 0 1 7.9-6.93c.43-.03.77-.08.78-.1.06-.17.5-2.999.47-3.039-.01-.02-.1-.02-.2-.03Zm3.68.67c-.2 0-.3.1-.37.38-.06.23-.46 2.42-.46 2.52 0 .04.1.11.22.16a8.51 8.499 0 0 1 2.99 2 8.38 8.379 0 0 1 2.16 3.449 6.9 6.9 0 0 1 .4 2.8c0 1.07 0 1.27-.1 1.73a9.37 9.369 0 0 1-1.76 3.769c-.32.4-.98 1.06-1.37 1.38-.38.32-1.54 1.1-1.7 1.14-.1.03-.1.06-.07.26.03.18.64 2.56.7 2.78l.06.06a12.07 12.058 0 0 0 7.27-9.4c.13-.77.13-2.58 0-3.4a11.96 11.948 0 0 0-5.73-8.578c-.7-.42-2.05-1.06-2.25-1.06Z"/>
+  </symbol>
+  <symbol id="i-curseforge" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.326 9.2145S23.2261 8.4418 24 6.1882h-7.5066V4.4H0l2.0318 2.3576V9.173s5.1267-.2665 7.1098 1.2372c2.7146 2.516-3.053 5.917-3.053 5.917L5.0995 19.6c1.5465-1.4726 4.494-3.3775 9.8983-3.2857-2.0565.65-4.1245 1.6651-5.7344 3.2857h10.9248l-1.0288-3.2726s-7.918-4.6688-.8336-7.1127z"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10" cy="10" r="3.4"/>
+    <path d="M10 2.5v1.8M10 15.7v1.8M17.5 10h-1.8M4.3 10H2.5M15.3 4.7l-1.3 1.3M6 14l-1.3 1.3M15.3 15.3L14 14M6 6L4.7 4.7"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 11.7A6.5 6.5 0 0 1 8.3 4a6.6 6.6 0 1 0 7.7 7.7z"/>
+  </symbol>
+</svg>
+
+<header class="masthead">
+  <div class="wrap">
+    __MARK__
+    <p class="sub">__SUBHEADING__</p>
+    <div class="head-actions">
+      __DOWNLOADS__
+      <button class="icon-btn" id="theme" type="button" title="Switch theme" aria-label="Switch theme">
+        <svg width="20" height="20" aria-hidden="true"><use href="#i-sun" id="theme-icon"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="wrap">
+    <div class="field">
+      <svg width="20" height="20" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="q" type="search" placeholder="Filter by name or item" aria-label="Filter variants" autofocus>
+      <button class="clear" id="clear" type="button" title="Clear filter" aria-label="Clear filter" hidden>
+        <svg width="16" height="16" aria-hidden="true"><use href="#i-close"/></svg>
+      </button>
+    </div>
+    <div class="picker" id="version-picker" hidden>
+      <button type="button" class="picker-button" id="version-button"
+              aria-haspopup="listbox" aria-expanded="false" aria-label="Minecraft version">
+        <span id="version-value">All versions</span>
+        <svg width="20" height="20" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <div class="picker-menu" id="version-menu" role="listbox"
+           aria-label="Minecraft version" hidden></div>
+    </div>
+    <p class="count" id="count" aria-live="polite"></p>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="grid" id="grid"></div>
+</main>
+
+__FOOTER__
+
+<dialog id="modal">
+  <div class="panel">
+    <div class="stage">
+      <canvas id="view"></canvas>
+      <p class="hint">drag to rotate &middot; scroll to zoom</p>
+      <button class="icon-btn nav prev" type="button" id="prev" title="Previous" aria-label="Previous">
+        <svg width="20" height="20" aria-hidden="true"><use href="#i-prev"/></svg>
+      </button>
+      <button class="icon-btn nav next" type="button" id="next" title="Next" aria-label="Next">
+        <svg width="20" height="20" aria-hidden="true"><use href="#i-next"/></svg>
+      </button>
+      <div class="stage-tools">
+        <button class="icon-btn" type="button" id="m-spin" aria-pressed="true" title="Pause rotation" aria-label="Pause rotation">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-pause" id="spin-icon"/></svg>
+        </button>
+        <button class="icon-btn" type="button" id="m-reset" title="Reset view" aria-label="Reset view">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-reset"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="meta">
+      <div>
+        <h2 id="m-title"></h2>
+        <p class="id" id="m-id"></p>
+      </div>
+      <dl class="facts">
+        <div><dt>Since</dt><dd id="m-since"></dd></div>
+        <div><dt>Pot with</dt><dd id="m-item"></dd></div>
+      </dl>
+      <div class="actions">
+        <span class="count" id="m-position"></span>
+        <span class="spacer"></span>
+        <a class="icon-btn" id="m-png" download title="Download PNG" aria-label="Download PNG">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-download"/></svg>
+        </a>
+      </div>
+    </div>
+    <button class="icon-btn close" type="button" data-close title="Close" aria-label="Close">
+      <svg width="20" height="20" aria-hidden="true"><use href="#i-close"/></svg>
+    </button>
+  </div>
+</dialog>
+
+<script type="application/json" id="data">__DATA__</script>
+<script src="page.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "extraKnownMarketplaces": {
+    "ui-ux-pro-max-skill": {
+      "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" }
+    },
+    "impeccable": {
+      "source": { "source": "github", "repo": "pbakaus/impeccable" }
+    },
+    "taste": {
+      "source": { "source": "github", "repo": "obakeng-develops/taste" }
+    }
+  },
+  "enabledPlugins": {
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "impeccable@impeccable": true,
+    "taste@taste": true
+  }
+}

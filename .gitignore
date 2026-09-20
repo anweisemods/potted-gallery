@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+/out/
+/build/
+
+# local preview scaffolding, not part of the action
+.claude/launch.json
+/demo.py
+.idea/

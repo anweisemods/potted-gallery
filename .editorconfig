@@ -1,0 +1,152 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+max_line_length = 120
+ij_continuation_indent_size = 2
+ij_visual_guides = 120
+
+[*.java]
+indent_size = 2
+tab_width = 2
+ij_continuation_indent_size = 2
+max_line_length = 120
+
+# Right margin is a guide, not a hard wrap: existing long lines stay intact.
+ij_java_wrap_long_lines = false
+ij_java_keep_line_breaks = true
+
+# ---------------------------------------------------------------------------
+# Imports - two categories, split by exactly one blank line.
+#
+#   import static org.junit.jupiter.api.Assertions.assertEquals;
+#   import static org.junit.jupiter.api.Assertions.assertTrue;
+#
+#   import java.util.List;
+#   import lombok.Getter;
+#   import net.codingarea.core.NetworkCore;
+#   import org.bukkit.entity.Player;
+#
+# The single `|` is the only separator, so statics never mix with the rest and
+# nothing else gets split off. `*` is the catch-all, so java.** / javax.** are
+# NOT pulled into their own group - they sort alphabetically with the others.
+# To put statics at the bottom instead, use: ij_java_imports_layout = *, |, $*
+# ---------------------------------------------------------------------------
+ij_java_imports_layout = $*, |, *
+
+# Required for the `$*` entry to mean anything - keeps statics as their own
+# category instead of interleaving them with the regular imports.
+ij_java_layout_static_imports_separately = true
+ij_java_use_single_class_imports = true
+ij_java_insert_inner_class_imports = false
+
+# ---------------------------------------------------------------------------
+# On-demand (wildcard) imports - disabled.
+#
+# Matches Google Java Style 3.3.1 "Wildcard imports, static or otherwise, are
+# not used" and Checkstyle's AvoidStarImport. Wildcards hide which types a file
+# actually depends on, and a class added to a dependency's package in a later
+# release can silently collide with (or shadow) one you already import -
+# java.util.List vs java.awt.List being the classic case.
+#
+# IntelliJ has no on/off switch here, only thresholds, so "never" is expressed
+# as a count nothing will reach. 999 is the value Google's own
+# intellij-java-google-style.xml uses; IntelliJ's defaults are 5 and 3.
+ij_java_class_count_to_use_import_on_demand = 999
+ij_java_names_count_to_use_import_on_demand = 999
+
+# Empty list. IntelliJ ships java.awt.* and javax.swing.* here, and entries in
+# this list are forced to wildcards regardless of the counts above - so leaving
+# it populated would defeat both settings for those packages.
+ij_java_packages_to_use_import_on_demand =
+
+# Import the type rather than inlining a fully qualified name.
+ij_java_use_fq_class_names = false
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# JavaDoc
+# ---------------------------------------------------------------------------
+ij_java_doc_enable_formatting = true
+
+# THE important one: `/** Short description. */` stays on a single line instead
+# of being exploded into three. Backs the JD_DO_NOT_WRAP_ONE_LINE_COMMENTS field
+# in JavaCodeStyleSettings - note the EditorConfig key is NOT named after the
+# field: it is `doc_do_not_wrap_if_one_line`. Anything else is silently ignored.
+ij_java_doc_do_not_wrap_if_one_line = true
+
+# Keep hand-made line breaks inside multi-line JavaDoc instead of re-flowing
+# paragraphs to the right margin. (Field JD_PRESERVE_LINE_FEEDS, but the key is
+# `doc_preserve_line_breaks`.)
+ij_java_doc_preserve_line_breaks = true
+ij_java_doc_keep_empty_lines = true
+
+ij_java_doc_add_blank_line_after_description = true
+ij_java_doc_add_blank_line_after_param_comments = false
+ij_java_doc_add_blank_line_after_return = false
+ij_java_doc_add_p_tag_on_empty_lines = true
+
+ij_java_doc_enable_leading_asterisks = true
+ij_java_doc_align_param_comments = true
+ij_java_doc_align_exception_comments = true
+ij_java_doc_indent_on_continuation = false
+
+ij_java_doc_keep_invalid_tags = true
+ij_java_doc_keep_empty_parameter_tag = true
+ij_java_doc_keep_empty_return_tag = true
+ij_java_doc_keep_empty_throws_tag = true
+ij_java_doc_use_throws_not_exception_tag = true
+
+# ---------------------------------------------------------------------------
+# Braces / blank lines
+# ---------------------------------------------------------------------------
+ij_java_class_brace_style = end_of_line
+ij_java_method_brace_style = end_of_line
+ij_java_brace_style = end_of_line
+ij_java_blank_lines_after_class_header = 1
+ij_java_keep_blank_lines_in_code = 1
+ij_java_keep_blank_lines_before_right_brace = 2
+ij_java_blank_lines_after_package = 1
+ij_java_blank_lines_after_imports = 1
+
+# Groovy Gradle scripts use 4 in this codebase.
+[*.gradle]
+indent_size = 4
+ij_continuation_indent_size = 4
+
+[*.gradle.kts]
+indent_size = 2
+ij_continuation_indent_size = 2
+
+[*.{kt,kts}]
+indent_size = 2
+ij_continuation_indent_size = 2
+
+# PEP 8 - 4 spaces, and what black/ruff/pycodestyle assume. The [*] catch-all
+# above would otherwise put Python at 2 (decided 2026-09-10).
+[*.py]
+indent_size = 4
+ij_continuation_indent_size = 4
+
+[*.{xml,yml,yaml,toml,properties}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# Generated / bulk data - leave alone.
+[{*.json,**/texturepack/**,**/maps/**,**/resource/**}]
+indent_size = unset
+indent_style = unset
+max_line_length = off
+trim_trailing_whitespace = false
+insert_final_newline = unset

@@ -1,0 +1,74 @@
+name: Potted gallery
+description: >-
+  Render every potted block a flower-pot mod adds, plus the item you pot each one with,
+  straight from the mod's model JSON. No Minecraft client, no GPU.
+
+inputs:
+  config:
+    description: Path to the mod's gallery.json, relative to the workspace.
+    default: gallery.json
+  out:
+    description: Output directory. Defaults to <repo>/build/gallery.
+    default: build/gallery
+  jar:
+    description: >-
+      Vanilla client jar. Leave empty to find the one the Gradle build already
+      downloaded, which is why the build has to run first.
+    default: ''
+  sources:
+    description: >-
+      Extra resource directories or jars, one per line. Globs and ${gradle.property}
+      references are expanded. Usually unnecessary, since gallery.json lists them.
+    default: ''
+  args:
+    description: >-
+      Extra arguments, e.g. "--size 192 --theme light". The sheet's column count
+      belongs in gallery.json's "columns"; --columns here overrides it.
+    default: ''
+  strict:
+    description: Fail the job if any texture or item icon cannot be resolved.
+    default: 'true'
+  python-version:
+    description: Python to render with.
+    default: '3.12'
+
+outputs:
+  directory:
+    description: The directory the gallery was written to.
+    value: ${{ inputs.out }}
+  overview:
+    description: Path of the contact sheet.
+    value: ${{ inputs.out }}/overview.png
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install renderer dependencies
+      shell: bash
+      run: pip install --disable-pip-version-check -r "$GITHUB_ACTION_PATH/requirements.txt"
+
+    - name: Render gallery
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+        NEP_CONFIG: ${{ inputs.config }}
+        NEP_OUT: ${{ inputs.out }}
+        NEP_JAR: ${{ inputs.jar }}
+        NEP_SOURCES: ${{ inputs.sources }}
+        NEP_ARGS: ${{ inputs.args }}
+        NEP_STRICT: ${{ inputs.strict }}
+      run: |
+        set -euo pipefail
+        flags=(--config "$NEP_CONFIG" --out "$NEP_OUT")
+        [ -n "$NEP_JAR" ] && flags+=(--jar "$NEP_JAR")
+        [ "$NEP_STRICT" = "true" ] && flags+=(--strict)
+        while IFS= read -r line; do
+          [ -n "$line" ] && flags+=(--source "$line")
+        done <<< "$NEP_SOURCES"
+        # shellcheck disable=SC2206
+        extra=($NEP_ARGS)
+        python -m pottedgallery "${flags[@]}" ${extra[@]+"${extra[@]}"}

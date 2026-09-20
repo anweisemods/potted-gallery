@@ -1,0 +1,718 @@
+  /* ------------------------------------------------------------------ tokens
+     Structure is square -- the grid, the dividers, the footer rule -- and
+     everything that floats or can be operated shares ONE radius. Two names
+     because they say different things, one value because a page with a single
+     corner is what makes a control, a menu and the modal read as one kit.
+
+     12px is not a taste call, it is the ceiling. A control is --tap = 36px tall,
+     so the pill it used to be (border-radius: 999px) was r = h/2 = 18. A shape
+     stops reading as a rectangle with rounded corners the moment the flat part
+     of its short side, h - 2r, is shorter than the corner radius itself; that
+     crossover is r = h/3, and at 36px that is exactly 12 -- 12px of flat, 12px
+     of curve. Past it the corners meet and it becomes a stadium again. The
+     radius deliberately does NOT track --tap: at the 44px coarse-pointer size
+     the same 12px leaves 20px of flat side, which is correct, because a radius
+     is a property of the style and not of the finger hitting it.
+     Spacing is a 4px grid. Every gap below is a token, never a loose number. */
+  :root {
+    color-scheme: dark;
+    --bg: #0f1114;
+    --surface: #171a1f;
+    --surface-hi: #1e222a;
+    --line: #262b33;
+    --line-soft: #1c2027;
+    --text: #e8ecf2;
+    --text-2: #a2abba;
+    --text-3: #6e7887;
+    --accent: #7ccf6a;
+    /* A shadow is sized to how far the surface is lifted, not to the page. The modal
+       floats over a dimmed page and earns a big one; a menu is attached to the button
+       that opened it, a few pixels off the surface, and the same 32/80 blur made it
+       look like it had come unstuck. Two layers each, because one large blur has no
+       edge: the tight layer grounds the corner, the soft one carries the depth, and
+       both keep blur at roughly 2.5x the offset. Dark theme leans on the --surface
+       step for elevation and only needs the shadow to separate the corner. */
+    --shadow: 0 32px 80px rgba(0, 0, 0, .55);
+    --shadow-menu: 0 2px 4px rgba(0, 0, 0, .30), 0 8px 20px rgba(0, 0, 0, .44);
+
+    --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+    --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+
+    --r-sheet: 12px;
+    --r-control: 12px;
+
+    /* One blur recipe for every frosted surface -- the toolbar, the stage controls,
+       the version menu's backdrop. The scrim behind the modal is the one exception,
+       and it is deliberately weaker so the page stays legible underneath.
+       --glass was 72% and is now 64%, which is the point where you can still read the
+       model through a control. Measured rather than eyeballed: the worst case is a
+       white model behind a control in the dark theme, and a --text icon over 64% of
+       the dark ground lands at 4.8:1. The light theme's worst case is 7.3:1. Both
+       clear WCAG AA for text and comfortably clear the 3:1 that UI graphics need, so
+       the icons hold up whatever is behind them. Dropping to 62% falls to 4.47:1. */
+    --blur: saturate(180%) blur(16px);
+    --blur-scrim: saturate(120%) blur(6px);
+    --glass: color-mix(in srgb, var(--bg) 64%, transparent);
+    --glass-hi: color-mix(in srgb, var(--bg) 84%, transparent);
+    /* Derived from --text, so it is a faint light edge on dark glass and a faint dark
+       one on light glass. --line is a solid stroke meant for opaque structure; over a
+       thin blur it reads as a hard ring drawn around the control, not as its edge. */
+    --glass-edge: color-mix(in srgb, var(--text) 8%, transparent);
+    /* How close the version menu may come to the edge of the viewport. Shared with
+       placeMenu() in page.js, which does the clamping. It tracks .wrap's own padding,
+       so a clamped menu lands exactly on the grid's edge instead of 4px inside it. */
+    --menu-gutter: var(--s-5);
+
+    --wrap: 1360px;
+    --tap: 36px;
+    /* The shared width of the two labelled triggers, so the download button and
+       the version picker are one column rather than two near-misses. Measured at
+       their real weight of 500, not guessed: "Download" needs 151 and the widest
+       version label, "Minecraft 1.20.3", needs 159. 168 clears both on the 4px
+       grid with a little headroom -- 160 cleared it by a single pixel, which is
+       not a margin. It is a min-width, so a mod with a longer label grows past it
+       rather than clipping, and it stops the picker resizing itself every time
+       you choose a version, which it did across a 131-159 range. */
+    --control-w: 168px;
+
+    /* One UI face, weight does the work. Mono is functional only: ids, versions,
+       anything you might read character by character. */
+    --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+          "Segoe UI", Inter, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #f6f7f9;
+    --surface-hi: #eef0f4;
+    --line: #dce0e7;
+    --line-soft: #eaedf2;
+    --text: #12151a;
+    --text-2: #5a6472;
+    --text-3: #8b94a3;
+    --accent: #2c7a34;
+    --shadow: 0 32px 80px rgba(16, 20, 28, .22);
+    --shadow-menu: 0 2px 4px rgba(16, 20, 28, .06), 0 8px 20px rgba(16, 20, 28, .12);
+  }
+
+  * { box-sizing: border-box; }
+  /* showModal() makes the page inert but still lets the wheel scroll it. The gutter is
+     reserved at all times so locking the scroll cannot shift the layout sideways. */
+  html { scrollbar-gutter: stable; }
+  html.modal-open { overflow: hidden; }
+  /* An author `display` beats the UA stylesheet's rule for [hidden], so a flex or
+     grid container stays visible unless this says otherwise. The version picker
+     is hidden on a mod with no version data and would otherwise show up empty. */
+  [hidden] { display: none !important; }
+
+  /* A column the height of the viewport, with main taking the slack -- otherwise a
+     one-result search leaves the footer floating in the middle of the window. */
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    /* 15px body, 1.45 leading -- inside the 15-25px / 1.3-1.45 band that reads
+       best for UI text. Tracking follows size: tight at display sizes, neutral
+       here, open on the small tracked labels below. */
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--s-5); }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 var(--s-4); }
+    :root { --menu-gutter: var(--s-4); }
+  }
+
+  /* ------------------------------------------------------------------ type */
+  /* The name alone. The version used to sit inside the h1 at the same size and weight,
+     which gave a build number the same standing as the mod's identity. */
+  h1 {
+    margin: 0;
+    font-size: clamp(27px, 3.2vw, 34px);
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.024em;
+  }
+  /* The masthead's eyebrow and the sheet's fact labels are the same object: a small
+     tracked marker naming whatever sits under it. One rule so they cannot drift. */
+  .eyebrow, .facts dt {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .eyebrow { margin-bottom: var(--s-2); }
+  .facts dt { margin-bottom: 4px; }
+  .sub {
+    margin: 0;
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    letter-spacing: 0.02em; color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+  /* The divider between two facts on one line. Faded to 45% of the text it sits
+     between, so it separates without competing, and on the 4px scale like every
+     other gap. Shown only where .sub is a row; see the masthead below. */
+  .sub .dot {
+    color: color-mix(in srgb, var(--text-2) 45%, transparent);
+    padding: 0 var(--s-1);
+  }
+
+  /* --------------------------------------------------------------- masthead */
+  /* One flush row: mark on the left, metadata and controls together on the right,
+     all on a single centre line. The banner version used to stack the wordmark over
+     its metadata and leave the buttons floating against empty width. */
+  .masthead { padding: var(--s-6) 0 var(--s-5); }
+  .masthead .wrap {
+    display: flex; align-items: center; gap: var(--s-4) var(--s-5);
+  }
+
+  /* Sized by WIDTH, not height. One mod stacks its wordmark on two lines and another
+     sets one line beside an icon, so a shared height renders their lettering at wildly
+     different sizes -- a shared width lands them close, because a wider wordmark is
+     wider mostly by having more letters in it. The renderer crops the transparent
+     margins off first, which is what makes the width mean the same thing each time. */
+  .wordmark {
+    width: clamp(184px, 20vw, 248px); height: auto; flex: none;
+    display: block; object-fit: contain;
+  }
+  .logo { width: clamp(54px, 5.4vw, 64px); height: clamp(54px, 5.4vw, 64px);
+          flex: none; object-fit: contain; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+
+  /* --s-3, matching the toolbar's gap, so the masthead's trailing controls and the
+     toolbar's land in the same two columns: the download button over the version
+     trigger, the theme toggle over the count. With --s-2 here and --s-3 there the
+     two rows drifted 10px apart, which is just close enough to look like a mistake. */
+  .head-actions { display: flex; gap: var(--s-3); flex: none; margin-left: auto; }
+  /* Stacked beside the wordmark, one fact per line. Three lines at 12/1.5 come to 54px,
+     which is within a few pixels of where both mods' wordmarks land at this width -- so
+     the two sit as a pair rather than the text trailing off the end of the art. The
+     hairline is the same divider the toolbar and the grid use, with an equal --s-5 on
+     either side of it: the row gap supplies one, this padding the other. */
+  .masthead .sub {
+    align-self: stretch;
+    display: flex; flex-direction: column; justify-content: center; gap: var(--s-2);
+    padding-left: var(--s-5);
+    border-left: 1px solid var(--line);
+  }
+  /* Beside the wordmark the facts are a stacked column, so the divider would be a
+     bullet at the head of the second row rather than a separator between two. */
+  .masthead .sub .dot { display: none; }
+
+  @media (max-width: 760px) {
+    .masthead { padding: var(--s-5) 0 var(--s-4); }
+    .masthead .wrap { flex-wrap: wrap; row-gap: var(--s-3); }
+    .wordmark { width: clamp(160px, 46vw, 220px); }
+    /* Once the facts drop onto their own row they become a single line joined by
+       the divider, not two rows stacked under the wordmark. Two short mono facts
+       stacked read as a list of one-word items and waste a whole line; on one
+       line they read as the caption they are. flex-wrap stays on purely as a
+       safety valve -- "v1.5.1 . Minecraft 26.3" measures ~156px against the
+       ~358px available at 390, so it should never fire, and a stranded divider
+       is still better than a horizontal scrollbar. */
+    .masthead .sub {
+      order: 1; flex: 1 0 100%;
+      flex-direction: row; flex-wrap: wrap; align-items: baseline;
+      /* The desktop rule centres the stacked column vertically. Flipping to a row
+         turns that same declaration into horizontal centring, which floated the
+         line in the middle of the page instead of starting it on the wordmark's
+         left edge, so it has to be reset with the direction. */
+      justify-content: flex-start;
+      align-self: auto; gap: 0;
+      padding-left: 0; border-left: none;
+    }
+    .masthead .sub .dot { display: inline; }
+  }
+
+  /* ---------------------------------------------------------------- toolbar */
+  /* One rule, and it does two jobs: it separates the sticky bar from the content and
+     it *is* the grid's top edge. The bar used to be fenced by a line above and a line
+     below, with a third under the gap where the grid started. */
+  /* No border. It used to carry a full-bleed rule that ran the whole width of the
+     window and doubled as the grid's top edge; the grid now draws its own, inset to
+     the same gutter as everything else. The blur alone separates the sticky bar. */
+  .toolbar {
+    position: sticky; top: 0; z-index: 20;
+  }
+  /* The blur lives on a pseudo-element, not on .toolbar itself. An element with a
+     backdrop-filter composites its descendants into its own layer, which ate the
+     version menu's background and left its text floating over the grid. Keeping the
+     filter on a sibling layer behind the content leaves the menu painting normally.
+     z-index -1 stays inside the toolbar's own stacking context, which its z-index
+     creates, so it cannot fall behind the page. */
+  .toolbar::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .toolbar::before { backdrop-filter: var(--blur); }
+  }
+  .toolbar .wrap {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding-top: var(--s-3); padding-bottom: var(--s-3);
+  }
+  /* Below 640 the filter takes a row of its own: squeezed onto one line with the
+     picker, the placeholder truncates and the field stops looking typable. */
+  @media (max-width: 640px) {
+    .toolbar .wrap { flex-wrap: wrap; row-gap: var(--s-2); }
+    .field { flex: 1 1 100%; }
+    .picker { flex: 1 1 auto; }
+  }
+  .count {
+    margin-left: auto; flex: none;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
+    color: var(--text-3); font-variant-numeric: tabular-nums;
+  }
+  /* The count sits under the theme toggle, so it takes the toggle's footprint and
+     centres in it. Right-aligning both was not enough: a 22px number against a
+     36px button shares a right edge but not a centre, and the eye reads the
+     centres. --tap for both means they stay paired at the 44px coarse size too.
+     Scoped to the toolbar -- the modal reuses .count for "1 / 106". */
+  .toolbar .count { min-width: var(--tap); text-align: center; }
+
+  /* --------------------------------------------------------------- controls */
+  /* The field, the version trigger and the download button are one control drawn
+     three times: --tap tall, --s-4 of padding, --s-2 between icon and text, 14px
+     type, a --line hairline and --r-control corners. The box is the field itself
+     rather than the input, so the icon and the clear button are flex siblings
+     laid out on that same --s-2 rhythm instead of being positioned over the top
+     of an input whose padding had to be kept in sync with them by hand.
+     It takes all the width the picker and the count leave it, so the bar spans
+     the grid edge to edge and the field's own left edge lines up with the first
+     card's. */
+  .field {
+    flex: 1 1 280px; min-width: 0;
+    display: flex; align-items: center; gap: var(--s-2);
+    height: var(--tap); padding: 0 var(--s-2) 0 var(--s-4);
+    background: var(--surface);
+    /* Transparent, not absent. The two filter controls are held by their fill
+       alone and only the download button is outlined, which is what separates
+       the one action from the two settings. The border still has to be declared
+       at 1px or the box loses 2px of height and drops out of the column it
+       shares with the outlined button. */
+    border: 1px solid transparent; border-radius: var(--r-control);
+    transition: background-color .15s ease;
+  }
+  .field > svg { flex: none; color: var(--text-3); }
+  /* State is a surface step, never a different stroke. Every other interactive
+     thing on the page works this way -- a card hovers to --surface, an icon
+     button and a menu row to --surface-hi -- and --line stays the one structural
+     stroke. An earlier pass darkened these borders to --text-3 on hover and
+     focus, which put a text colour on a rule and gave the controls a state the
+     rest of the page has no equivalent for. */
+  /* Focus is the same surface step as hover, and no ring. That is the page's own
+     long-standing call, not an oversight: the stylesheet has always carried an
+     explicit `outline: none` on the focused search field while every other
+     control keeps the global --accent ring. An earlier pass here read that as a
+     missing focus indicator and "restored" the ring onto the field, which put
+     the one saturated colour on the page's largest control. */
+  .field:hover, .field:focus-within { background: var(--surface-hi); }
+  .field:focus-within > svg { color: var(--text-2); }
+  /* Appears only once there is something to clear -- an always-visible X on an empty
+     field is a control that does nothing. */
+  .clear {
+    flex: none; display: grid; place-items: center;
+    width: 28px; height: 28px; padding: 0;
+    color: var(--text-3); background: transparent;
+    /* Concentric with the field around it: the button is inset by --s-1 from the
+       field's inner edge, so its corner is the field's less that same --s-1. */
+    border: 0; border-radius: calc(var(--r-control) - var(--s-1)); cursor: pointer;
+    -webkit-user-select: none; user-select: none;
+  }
+  /* Icon brightening only, no hover fill. The clear button appears once you are
+     typing, which means the field is already at --surface-hi, so a --surface-hi
+     blob would be invisible and a --surface one inverts between the themes --
+     darker than the field on dark, lighter on light. This is what .btn-text's
+     leading icon and the menu rows' marks do too. */
+  .clear:hover { color: var(--text); }
+  input[type="search"] {
+    flex: 1; min-width: 0; height: 100%;
+    font: inherit; font-size: 14px; color: var(--text);
+    background: transparent; border: 0; border-radius: 0;
+    padding: 0; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+  input[type="search"]::placeholder { color: var(--text-3); }
+
+  /* The trigger is the search field's twin: same height, padding, gap and type,
+     one step less padding on the chevron side because a chevron needs less room
+     than a letter. The menu is a floating surface, so it takes the sheet radius --
+     and its rows stay square inside, clipped by the sheet, rather than becoming a
+     third rounded shape. */
+  .picker { position: relative; flex: none; }
+  .picker-button {
+    display: flex; align-items: center; gap: var(--s-2);
+    height: var(--tap); width: 100%; min-width: var(--control-w);
+    /* 500, matching the download button. The two sit in one column at one width,
+       so they share one type spec exactly; 500 is the labelled-control weight
+       here, distinct from the 400 of the menu rows the trigger opens. */
+    font: inherit; font-size: 14px; font-weight: 500; color: var(--text);
+    background: var(--surface);
+    /* Unoutlined like the search field beside it; see the note there. */
+    border: 1px solid transparent; border-radius: var(--r-control);
+    padding: 0 var(--s-3) 0 var(--s-4);
+    cursor: pointer; white-space: nowrap;
+    transition: background-color .15s ease;
+  }
+  .picker-button:hover { background: var(--surface-hi); }
+  /* Pinned right rather than trailing the label, so the two triggers put their
+     chevrons on the same axis however long their labels are. */
+  .picker-button svg { margin-left: auto; color: var(--text-3); transition: transform .18s ease; }
+  .picker-button[aria-expanded="true"] { background: var(--surface-hi); }
+  .picker-button[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+  /* The download trigger -- the one labelled control on the page, and the same
+     object again: identical geometry and type to the two above, one surface step
+     brighter. That step is the whole of its prominence; the label does the rest.
+     It reuses .picker/.picker-menu wholesale, so it inherits the menu surface,
+     the open animation and the off-screen clamping rather than growing a second
+     copy of them that could drift. */
+  .btn-text {
+    display: flex; align-items: center; gap: var(--s-2);
+    height: var(--tap); min-width: var(--control-w);
+    padding: 0 var(--s-3) 0 var(--s-4);
+    font: inherit; font-size: 14px; font-weight: 500; color: var(--text);
+    background: var(--surface-hi);
+    border: 1px solid var(--line); border-radius: var(--r-control);
+    cursor: pointer; white-space: nowrap; text-decoration: none;
+    -webkit-user-select: none; user-select: none;
+    transition: background-color .15s ease;
+  }
+  /* It already sits a surface step above the filter controls, so its hover goes
+     up again rather than restyling its border. */
+  .btn-text:hover, .btn-text[aria-expanded="true"] { background: var(--surface); }
+  .btn-text .lead { color: var(--text-2); flex: none; }
+  .btn-text:hover .lead { color: var(--text); }
+  .btn-text .chevron { margin-left: auto; color: var(--text-3); flex: none; transition: transform .18s ease; }
+  .btn-text[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+  /* Below this the wordmark, the button and the theme toggle stop fitting on the
+     masthead's top line. The label is what goes: the icon still opens the same
+     menu, and the alternative -- wrapping a lone button onto its own row -- reads
+     as a layout accident rather than a decision. */
+  @media (max-width: 560px) {
+    /* min-width has to go too, or the collapsed button stays --control-w wide. */
+    .btn-text { padding: 0; width: var(--tap); min-width: 0; justify-content: center; }
+    .btn-text .label, .btn-text .chevron { display: none; }
+    .btn-text .lead { color: var(--text); }
+  }
+
+  .picker-menu {
+    position: absolute; top: calc(100% + var(--s-2)); left: 0; z-index: 30;
+    min-width: 100%; width: max-content;
+    max-width: min(320px, calc(100vw - 2 * var(--menu-gutter)));
+    max-height: min(60vh, 420px); overflow-y: auto; overscroll-behavior: contain;
+    /* --surface, not --bg. A menu filled with the page's own background is
+       invisible wherever nothing happens to be behind it: the version menu got
+       away with it because it only ever opens over the grid, but the download
+       menu opens over the empty masthead and read as loose text on the page,
+       with only a hairline round it and a shadow that is worth nothing on a
+       near-black ground. A floating sheet is always one surface step up. */
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-sheet); box-shadow: var(--shadow-menu);
+    padding: var(--s-1) 0;
+    animation: menu-in .14s ease-out;
+  }
+  @keyframes menu-in {
+    from { opacity: 0; transform: translateY(-4px) }
+    to { opacity: 1; transform: none }
+  }
+  .picker-option {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto 16px;
+    align-items: center; gap: var(--s-3);
+    padding: 0 var(--s-3) 0 var(--s-4); height: 34px;
+    font-size: 14px; color: var(--text); cursor: pointer; user-select: none;
+  }
+  .picker-option .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker-option:hover, .picker-option:focus-visible { background: var(--surface-hi); outline: none; }
+  .picker-option[aria-selected="true"] { color: var(--accent); }
+  .picker-option .tick { visibility: hidden; color: var(--accent); }
+  .picker-option[aria-selected="true"] .tick { visibility: visible; }
+  .picker-option .tally {
+    font-family: var(--mono); font-size: 11px; color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .picker-sep { height: 1px; margin: var(--s-1) 0; background: var(--line-soft); }
+
+  /* A download row. Taller than a version row (40 vs 34) because it is a
+     destination rather than a setting, and there are only ever two or three of
+     them. The brand marks stay monochrome like every other icon on the page --
+     colouring them in would put the only two brand colours on an otherwise
+     grey page, and Modrinth's green fails contrast on the light theme anyway. */
+  .menu-link {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding: 0 var(--s-4); height: 40px;
+    font-size: 14px; color: var(--text); text-decoration: none;
+  }
+  .menu-link:hover, .menu-link:focus-visible { background: var(--surface-hi); outline: none; }
+  .menu-link .mark { flex: none; color: var(--text-2); }
+  .menu-link:hover .mark { color: var(--text); }
+  .menu-link .go { margin-left: auto; flex: none; color: var(--text-3); }
+  .menu-link:hover .go { color: var(--text); }
+
+  /* Spamming prev/next used to start selecting the surrounding text, because a fast
+     second click is a double-click and a double-click selects. Controls are not text. */
+  .icon-btn, .picker-button { -webkit-user-select: none; user-select: none; }
+  .icon-btn {
+    flex: none; display: grid; place-items: center;
+    width: var(--tap); height: var(--tap); padding: 0;
+    color: var(--text-2); background: transparent;
+    border: 1px solid transparent; border-radius: var(--r-control);
+    cursor: pointer; text-decoration: none;
+    transition: background-color .15s ease, color .15s ease;
+  }
+  .icon-btn:hover { background: var(--surface-hi); color: var(--text); }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+  .icon-btn:disabled:hover { background: transparent; color: var(--text-2); }
+  /* A coarse pointer needs the full 44px target even though the painted
+     control stays 36px, so the buttons keep their visual rhythm on desktop. */
+  @media (pointer: coarse) { :root { --tap: 44px; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ------------------------------------------------------------------ grid
+     Cards carry their own hairlines instead of sitting in rounded boxes, so the
+     grid reads as one ruled sheet and every tile shares an edge with its
+     neighbours. That is also what makes the alignment self-evident. */
+  main.wrap {
+    flex: 1 0 auto; width: 100%;
+    padding-top: var(--s-5); padding-bottom: var(--s-8);
+  }
+
+  /* --------------------------------------------------------------- footer
+     The same hairline the toolbar uses, and the same mono metadata treatment as the
+     header's fact block -- 12px, --text-2, tabular. The page opens and closes on the
+     same voice. */
+  .footer { border-top: 1px solid var(--line); }
+  .footer .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: var(--s-2) var(--s-5);
+    padding-top: var(--s-5); padding-bottom: var(--s-7);
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    letter-spacing: 0.02em; color: var(--text-2);
+  }
+  .footer p { margin: 0; }
+  .footer a { color: inherit; text-decoration: none; }
+  .footer a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    border-top: 1px solid var(--line-soft);
+    border-left: 1px solid var(--line-soft);
+  }
+  @media (max-width: 640px) { .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); } }
+
+  a.card {
+    display: flex; flex-direction: column;
+    padding: var(--s-4) var(--s-4) var(--s-3);
+    border-right: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+    color: inherit; text-decoration: none;
+    transition: background-color .15s ease;
+  }
+  a.card:hover { background: var(--surface); }
+
+  .meta-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--s-2); height: 20px; margin-bottom: var(--s-1);
+  }
+  .since {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
+    color: var(--text-3); font-variant-numeric: tabular-nums;
+  }
+  .since.new { color: var(--accent); }
+  /* No `image-rendering: pixelated` anywhere on this page. Every image here is a
+     supersampled render being scaled *down* -- a 256px block into a ~136px card, a
+     256px icon into an 18px badge -- and nearest-neighbour downsampling just drops
+     pixels, which is what made the thumbnails look harsh. The texels stay square
+     regardless, because the renderer samples its textures with NEAREST. */
+  .badge {
+    width: 18px; height: 18px;
+    object-fit: contain; opacity: .75;
+  }
+  a.card:hover .badge { opacity: 1; }
+
+  .art {
+    width: 100%; aspect-ratio: __ASPECT__; display: block;
+    object-fit: contain;
+    transition: transform .18s ease;
+  }
+  a.card:hover .art { transform: scale(1.04); }
+
+  /* The block reserves two name lines so every id in a row shares one baseline, but it
+     packs its content to the bottom, so a one-line name sits 2px above its id instead of
+     being pushed apart by the empty reserved line. The slack lands above the name, next
+     to the artwork, where it reads as breathing room rather than as a broken gap.
+     51px = two 13/1.3 name lines (33.8) + 2 + one 11/1.35 id line (14.85). */
+  .info {
+    margin-top: var(--s-3); min-height: 51px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .name {
+    font-size: 13px; font-weight: 500;
+    line-height: 1.3; letter-spacing: -0.005em;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .id {
+    margin-top: 2px; font-family: var(--mono); font-size: 11px;
+    line-height: 1.35; color: var(--text-3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* margin: 0 is load-bearing. It is a <p>, so the UA stylesheet gives it 15px
+     top and bottom, and a grid item's margin is not collapsed away -- it pushed
+     the box off the grid's top rule, so its own right border started 16px too
+     low and left the corner open, and the grid's left border ran 15px past its
+     bottom border. It draws the cell's two edges the way a card does, so it has
+     to fill the cell exactly. */
+  .empty {
+    grid-column: 1 / -1; margin: 0;
+    padding: var(--s-8) var(--s-4); text-align: center;
+    color: var(--text-2);
+    border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+  }
+
+  /* ------------------------------------------------------------------ sheet */
+  dialog#modal {
+    border: none; padding: 0; background: transparent;
+    max-width: 100vw; max-height: 100vh; color: var(--text); overflow: visible;
+  }
+  dialog#modal::backdrop { background: rgba(6, 8, 12, .64); }
+  @supports (backdrop-filter: blur(2px)) {
+    dialog#modal::backdrop { backdrop-filter: var(--blur-scrim); }
+  }
+  dialog#modal[open] { animation: fade .18s ease-out; }
+  dialog#modal[open]::backdrop { animation: fade .18s ease-out; }
+  dialog#modal[open] .panel { animation: rise .24s cubic-bezier(.2, .9, .3, 1.1); }
+  /* Distinct keyframe names, not `fade ... reverse`. Re-using the same animation-name
+     the element already carries does not reliably restart it, which is why the close
+     never actually faded. `forwards` holds the end state for the frames between the
+     animation finishing and close() running. */
+  dialog#modal.closing { animation: fade-out .16s ease-in forwards; }
+  dialog#modal.closing::backdrop { animation: fade-out .16s ease-in forwards; }
+  dialog#modal.closing .panel { animation: sink .16s ease-in forwards; }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes fade-out { from { opacity: 1 } to { opacity: 0 } }
+  @keyframes sink {
+    from { opacity: 1; transform: none }
+    to { opacity: 0; transform: translateY(8px) scale(.985) }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(12px) scale(.985) }
+    to { opacity: 1; transform: none }
+  }
+
+  .panel {
+    position: relative; display: grid; width: min(900px, 94vw);
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: var(--r-sheet); box-shadow: var(--shadow); overflow: hidden;
+  }
+  @media (max-width: 720px) { .panel { grid-template-columns: 1fr; } }
+
+  .stage, .meta { min-width: 0; }
+  .stage {
+    position: relative; background: var(--surface);
+    border-right: 1px solid var(--line); min-height: 340px;
+  }
+  @media (max-width: 720px) { .stage { border-right: none; border-bottom: 1px solid var(--line); } }
+  #view { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #view.dragging { cursor: grabbing; }
+
+  /* Navigation sits on the stage edges, where it points; playback sits in a
+     cluster along the bottom, where it belongs to the animation rather than to
+     the sequence. Splitting them by meaning is what fixed the old layout, where
+     prev and next were stacked together in one corner. */
+  /* Thinner than it was, so the model reads through -- and the icon goes to full
+     --text with a hairline round the control, so the contrast does not depend on
+     what happens to be behind it. The blur is what makes that safe: it flattens the
+     backdrop to a near-flat field before the icon is drawn over it. */
+  .nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+    background: var(--glass); border-color: var(--glass-edge); color: var(--text);
+  }
+  .nav:hover { background: var(--glass-hi); }
+  .nav.prev { left: var(--s-3); }
+  .nav.next { right: var(--s-3); }
+
+  .stage-tools {
+    position: absolute; left: 50%; bottom: var(--s-3); transform: translateX(-50%);
+    z-index: 2; display: flex; align-items: center; gap: var(--s-1);
+    /* Concentric with the buttons inside it: the container's corner has to be the
+       child's plus the padding between them, or the gap round the curve reads
+       thicker than the gap down the side. Free when the control was a 999px pill. */
+    padding: var(--s-1); border-radius: calc(var(--r-control) + var(--s-1));
+    background: var(--glass); border: 1px solid var(--glass-edge);
+  }
+  .stage-tools .icon-btn { color: var(--text); }
+  .stage-tools .icon-btn:hover { background: var(--glass-hi); }
+  @supports (backdrop-filter: blur(1px)) {
+    .stage-tools, .nav { backdrop-filter: var(--blur); }
+  }
+  .hint {
+    position: absolute; left: 0; right: 0; top: var(--s-3); margin: 0;
+    text-align: center; font-size: 11px; letter-spacing: 0.01em;
+    color: var(--text-3); pointer-events: none;
+  }
+
+  .meta { padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); }
+  .meta h2 {
+    margin: 0; font-size: 20px; font-weight: 600;
+    line-height: 1.2; letter-spacing: -0.016em;
+  }
+  /* The one identifier left in the sheet, so it can carry a little more weight than a
+     caption: mono at 12px with the small positive tracking monospace wants at that size,
+     and enough gap from the title that it reads as a second line, not a subtitle. */
+  .meta .id {
+    margin-top: 6px; font-size: 12px; line-height: 1.4;
+    letter-spacing: 0.01em; color: var(--text-2);
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: break-word;
+  }
+  /* Label above value, not a label column. Two facts did not justify a fixed 76px
+     gutter: it spent 88px of a ~330px panel on two short words and squeezed the item
+     identifier -- the one thing you actually came here to read -- into what was left.
+     Stacked, each value gets the full width and the layout needs no breakpoint. */
+  .facts { margin: 0; display: flex; flex-direction: column; gap: var(--s-4); }
+  .facts dd {
+    margin: 0; display: flex; align-items: center; gap: var(--s-2);
+    font-family: var(--mono); font-size: 13px; line-height: 1.4;
+  }
+  /* The flex item, so a long identifier wraps instead of forcing the row wider. */
+  .facts dd span { min-width: 0; overflow-wrap: anywhere; }
+  /* 20px, up from 16: this is the answer to "what do I right-click the pot with", so
+     it earns being legible rather than sitting inline like a bullet. */
+  .facts dd img { width: 20px; height: 20px; object-fit: contain; flex: none; }
+  /* The version keeps --text and only the marker is accent, so "new" reads as an
+     annotation on the value rather than recolouring the fact itself. */
+  .tag-new {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .actions {
+    margin-top: auto; padding-top: var(--s-4); border-top: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: var(--s-2);
+  }
+  .actions .spacer { margin-left: auto; }
+  .close { position: absolute; right: var(--s-3); top: var(--s-3); z-index: 3; }
+  @media (max-width: 720px) {
+    .close { background: color-mix(in srgb, var(--bg) 72%, transparent); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::backdrop { animation: none !important; transition: none !important; }
+  }
