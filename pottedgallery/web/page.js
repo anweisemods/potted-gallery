@@ -56,9 +56,13 @@ if (versions.length > 1) {
     versions.map(v => row(v, "Minecraft " + v, reach(v))).join("");
 }
 
-/* ------------------------------------------------------- version listbox */
+/* ------------------------------------------------------------------ popups */
 
-const options = () => [...pickerMenu.querySelectorAll(".picker-option")];
+// The version listbox and the download menu are one object drawn twice: a trigger, a
+// floating menu, roving focus inside it, and the same three ways of dismissing it
+// (Escape, Tab, a click elsewhere). They were two near-identical copies for a while and
+// had already drifted apart -- only one of them answered Home and End -- so the
+// behaviour lives here once and the two differences are the hooks `popup` takes.
 
 // Right-aligned under the trigger, but never past the edge of the viewport. The menu is
 // `width: max-content` and the trigger can be much narrower than it, so a plain
@@ -79,122 +83,112 @@ function placeMenu(anchor, menu) {
   menu.style.left = Math.round(Math.max(min, Math.min(preferred, max))) + "px";
 }
 
-function openMenu(focus) {
-  if (!pickerMenu.hidden) return;
-  pickerMenu.hidden = false;
-  pickerButton.setAttribute("aria-expanded", "true");
-  placeMenu(picker, pickerMenu);
-  const list = options();
-  const target = list.find(o => o.dataset.value === version) || list[0];
-  if (focus && target) target.focus();
-  // Keep the checked row in view when the list is long enough to scroll.
-  if (target) target.scrollIntoView({ block: "nearest" });
+function neighbour(list, from, delta) {
+  const at = list.indexOf(from);
+  if (at < 0) return delta > 0 ? list[0] : list[list.length - 1];
+  return list[(at + delta + list.length) % list.length];
 }
 
-function closeMenu(restore) {
-  if (pickerMenu.hidden) return;
-  pickerMenu.hidden = true;
-  pickerButton.setAttribute("aria-expanded", "false");
-  if (restore) pickerButton.focus();
+// `root` is the .picker wrapper, which is what the menu is positioned against and what
+// "a click outside" is measured from. `onShow` decides where focus lands when the menu
+// opens; `onActivate` is what choosing a row means. A row that activates itself -- a
+// link -- leaves `activateOnKey` false, so Enter stays the browser's to handle.
+function popup(root, button, menu, itemSelector,
+               { onShow, onActivate, activateOnKey = false } = {}) {
+  const items = () => [...menu.querySelectorAll(itemSelector)];
+  const api = { show, hide };
+
+  function show(focus) {
+    if (!menu.hidden) return;
+    menu.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    placeMenu(root, menu);
+    const list = items();
+    if (onShow) onShow(list, focus);
+    else if (focus && list.length) list[0].focus();
+  }
+
+  function hide(restore) {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    if (restore) button.focus();
+  }
+
+  button.addEventListener("click", () => { menu.hidden ? show(true) : hide(false); });
+  button.addEventListener("keydown", event => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      show(true);
+    }
+  });
+  menu.addEventListener("click", event => {
+    const item = event.target.closest(itemSelector);
+    if (item && onActivate) onActivate(item, api);
+  });
+  menu.addEventListener("keydown", event => {
+    const list = items();
+    if (!list.length) return;
+    const focused = document.activeElement;
+    const active = focused ? focused.closest(itemSelector) : null;
+    const move = to => { event.preventDefault(); to.focus(); };
+    if (event.key === "ArrowDown") move(neighbour(list, active, 1));
+    else if (event.key === "ArrowUp") move(neighbour(list, active, -1));
+    else if (event.key === "Home") move(list[0]);
+    else if (event.key === "End") move(list[list.length - 1]);
+    else if (event.key === "Escape") { event.preventDefault(); hide(true); }
+    else if (event.key === "Tab") hide(false);
+    else if ((event.key === "Enter" || event.key === " ") && activateOnKey) {
+      event.preventDefault();
+      if (active && onActivate) onActivate(active, api);
+    }
+  });
+  // A click anywhere else dismisses it, the way a native menu does.
+  addEventListener("pointerdown", event => {
+    if (!menu.hidden && !root.contains(event.target)) hide(false);
+  });
+  // The trigger moves when the bar reflows, so an open menu has to follow it.
+  addEventListener("resize", () => { if (!menu.hidden) placeMenu(root, menu); });
+
+  return api;
 }
+
+/* ------------------------------------------------------- version listbox */
+
+const options = () => [...pickerMenu.querySelectorAll(".picker-option")];
+
+const versionPopup = popup(picker, pickerButton, pickerMenu, ".picker-option", {
+  onShow(list, focus) {
+    const target = list.find(o => o.dataset.value === version) || list[0];
+    if (!target) return;
+    if (focus) target.focus();
+    // Keep the checked row in view when the list is long enough to scroll.
+    target.scrollIntoView({ block: "nearest" });
+  },
+  onActivate: option => pick(option.dataset.value),
+  activateOnKey: true,
+});
 
 function pick(value) {
   version = value;
   const chosen = options().find(o => o.dataset.value === value);
   pickerValue.textContent = chosen ? chosen.querySelector("span").textContent : "All versions";
   options().forEach(o => o.setAttribute("aria-selected", String(o.dataset.value === value)));
-  closeMenu(true);
+  versionPopup.hide(true);
   draw();
 }
 
-function neighbour(list, from, delta) {
-  const at = list.indexOf(from);
-  return list[(at + delta + list.length) % list.length];
-}
-
-pickerButton.addEventListener("click", () => {
-  pickerMenu.hidden ? openMenu(true) : closeMenu(false);
-});
-pickerButton.addEventListener("keydown", event => {
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-    event.preventDefault();
-    openMenu(true);
-  }
-});
-pickerMenu.addEventListener("click", event => {
-  const option = event.target.closest(".picker-option");
-  if (option) pick(option.dataset.value);
-});
-pickerMenu.addEventListener("keydown", event => {
-  const list = options();
-  const active = document.activeElement.closest(".picker-option");
-  if (event.key === "ArrowDown") { event.preventDefault(); neighbour(list, active, 1).focus(); }
-  else if (event.key === "ArrowUp") { event.preventDefault(); neighbour(list, active, -1).focus(); }
-  else if (event.key === "Home") { event.preventDefault(); list[0].focus(); }
-  else if (event.key === "End") { event.preventDefault(); list[list.length - 1].focus(); }
-  else if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    if (active) pick(active.dataset.value);
-  }
-  else if (event.key === "Escape") { event.preventDefault(); closeMenu(true); }
-  else if (event.key === "Tab") closeMenu(false);
-});
-// A click anywhere else dismisses it, the way a native menu does.
-addEventListener("pointerdown", event => {
-  if (!pickerMenu.hidden && !picker.contains(event.target)) closeMenu(false);
-});
-// The trigger moves when the toolbar reflows, so an open menu has to follow it.
-addEventListener("resize", () => { if (!pickerMenu.hidden) placeMenu(picker, pickerMenu); });
-
 /* --------------------------------------------------------------- downloads */
 
-// The store links, when the mod's gallery.json declares any. The whole control
-// is absent otherwise, so every reference here has to tolerate a missing node --
-// PottedDelight shipped without downloads while NotEnoughPots had them.
+// The store links, when the mod's gallery.json declares any. The whole control is
+// absent otherwise -- PottedDelight shipped without downloads while NotEnoughPots had
+// them -- so this has to tolerate a missing node rather than assume one.
 const downloads = document.getElementById("downloads");
 if (downloads) {
-  const downloadButton = document.getElementById("downloads-button");
-  const downloadMenu = document.getElementById("downloads-menu");
-  const links = () => [...downloadMenu.querySelectorAll(".menu-link")];
-
-  const openDownloads = focus => {
-    if (!downloadMenu.hidden) return;
-    downloadMenu.hidden = false;
-    downloadButton.setAttribute("aria-expanded", "true");
-    placeMenu(downloads, downloadMenu);
-    if (focus) links()[0].focus();
-  };
-  const closeDownloads = restore => {
-    if (downloadMenu.hidden) return;
-    downloadMenu.hidden = true;
-    downloadButton.setAttribute("aria-expanded", "false");
-    if (restore) downloadButton.focus();
-  };
-
-  downloadButton.addEventListener("click", () => {
-    downloadMenu.hidden ? openDownloads(true) : closeDownloads(false);
-  });
-  downloadButton.addEventListener("keydown", event => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      openDownloads(true);
-    }
-  });
-  downloadMenu.addEventListener("keydown", event => {
-    const list = links();
-    const active = document.activeElement.closest(".menu-link");
-    if (event.key === "ArrowDown") { event.preventDefault(); neighbour(list, active, 1).focus(); }
-    else if (event.key === "ArrowUp") { event.preventDefault(); neighbour(list, active, -1).focus(); }
-    else if (event.key === "Escape") { event.preventDefault(); closeDownloads(true); }
-    else if (event.key === "Tab") closeDownloads(false);
-  });
-  // Following a link leaves the menu open behind the new tab otherwise.
-  downloadMenu.addEventListener("click", () => closeDownloads(false));
-  addEventListener("pointerdown", event => {
-    if (!downloadMenu.hidden && !downloads.contains(event.target)) closeDownloads(false);
-  });
-  addEventListener("resize", () => {
-    if (!downloadMenu.hidden) placeMenu(downloads, downloadMenu);
+  popup(downloads, document.getElementById("downloads-button"),
+        document.getElementById("downloads-menu"), ".menu-link", {
+    // Following a link would otherwise leave the menu open behind the new tab.
+    onActivate: (link, menu) => menu.hide(false),
   });
 }
 
@@ -225,11 +219,12 @@ function draw() {
 
   grid.innerHTML = shown.length ? "" : '<p class="empty">Nothing matches that.</p>';
   const fragment = document.createDocumentFragment();
-  shown.forEach((v, index) => {
+  // `position`, not `index`: the modal's own `index` is module scope, and a parameter
+  // of that name here would shadow it silently.
+  shown.forEach((v, position) => {
     const card = document.createElement("a");
     card.className = "card";
     card.href = v.block_png;
-    card.dataset.index = index;
     // A fixed meta row above the art keeps the version and the item icon on one
     // baseline across every tile, whatever height the artwork resolves to.
     card.innerHTML =
@@ -245,7 +240,7 @@ function draw() {
     card.addEventListener("click", event => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
       event.preventDefault();
-      openVariant(index);
+      openVariant(position);
     });
     fragment.append(card);
   });
